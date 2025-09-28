@@ -22,7 +22,6 @@ import java.util.Objects;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-//import javax.net.ssl.HttpsURLConnection;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -75,21 +74,25 @@ public class MainActivity extends AppCompatActivity {
             error.setVisibility(View.GONE);
         }
         executorService.execute(() -> {
+            //holds the result
             String result =null;
+            // HTTP connection
             HttpURLConnection connection = null;
+            // TO read the data
             InputStream inputStream = null;
             try {
+                // URL to fetch the data
                 URL url = new URL("https://api.openweathermap.org/data/2.5/weather?q=" + CITY + "&units=metric&appid=" + API);
                 connection = (HttpURLConnection) url.openConnection();
-                connection.setRequestMethod("GET"); // Optional, GET is default
-                // urlConnection.setReadTimeout(10000 /* milliseconds */);
-                // urlConnection.setConnectTimeout(15000 /* milliseconds */);
+                connection.setRequestMethod("GET");
                 connection.connect();
 
+                //Reading the data from the stream
                 inputStream = connection.getInputStream();
                 BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(inputStream));
                 StringBuilder stringBuilder = new StringBuilder();
                 String line;
+                //Reading the data line by line
                 while ((line = bufferedReader.readLine()) != null) {
                     stringBuilder.append(line).append("\n");
                 }
@@ -101,6 +104,7 @@ public class MainActivity extends AppCompatActivity {
                 // Handle exceptions
                 result= "Error fetching weather data";
             } finally {
+                // Close the streams and connection
                 if (inputStream != null) {
                     try {
                         inputStream.close();
