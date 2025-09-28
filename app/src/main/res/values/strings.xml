@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">WeatherApp</string>
+    <string name="button">Button</string>
+    <string name="txt_1">GET CITY ID</string>
+    <string name="txt_2">WEATHER BY ID</string>
+    <string name="txt_3">WEATHER BY NAME</string>
+</resources>
