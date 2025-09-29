@@ -1,6 +1,10 @@
 package com.practice.weatherapp;
 
+import android.Manifest;
 import android.annotation.SuppressLint;
+import android.content.pm.PackageManager;
+import android.location.Location;
+import android.location.LocationManager;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -9,8 +13,14 @@ import android.widget.ImageButton;
 import android.widget.ProgressBar;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationServices;
 
 import org.json.JSONObject;
 
@@ -25,11 +35,16 @@ import java.util.concurrent.Executors;
 
 
 public class MainActivity extends AppCompatActivity {
+    private String API = "14e719695ce420f98a14dea8163654ab";
 
-    String CITY = "london,uk";
-    String API = "14e719695ce420f98a14dea8163654ab";
+    private double latitude = -0.1257;
+    private double longitude = 0.0;
+
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
     private final Handler handler = new Handler(Looper.getMainLooper());
+    private FusedLocationProviderClient locationProvider ;
+
+    // UI variables
     private ProgressBar loader;
     private RelativeLayout mainContainer;
     private TextView error;
@@ -44,7 +59,6 @@ public class MainActivity extends AppCompatActivity {
     private TextView wind;
     private TextView pressure;
     private TextView humidity;
-    private ImageButton refresh;
 
     @SuppressLint("MissingInflatedId")
     @Override
@@ -65,10 +79,69 @@ public class MainActivity extends AppCompatActivity {
         wind = findViewById(R.id.wind);
         pressure = findViewById(R.id.pressure);
         humidity = findViewById(R.id.humidity);
-        refresh = findViewById(R.id.refresh);
+        ImageButton refresh = findViewById(R.id.refresh);
+        locationProvider = LocationServices.getFusedLocationProviderClient(this);
+
         fetchWeather();
         refresh.setOnClickListener(v -> fetchWeather());
 
+    }
+
+
+    private void getCurrentLocation(){
+        if (checkLocation()){
+            if (isLocationEnabled()){
+                locationProvider.getLastLocation().addOnCompleteListener(task -> {
+                    Location location = task.getResult();
+                    if (location != null){
+                        latitude = location.getLatitude();
+                        longitude = location.getLongitude();
+                    }
+                });
+
+            }else {
+                Toast.makeText(this, "Please turn on your location", Toast.LENGTH_LONG).show();
+                longitude = -0.1257;
+                latitude = 51.5085;
+            }
+
+        }else {
+            requestPermission();
+        }
+    }
+
+    private void requestPermission() {
+        ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION}, PERMISSION_REQUEST_ACCESS_CODE);
+    }
+
+    private final int PERMISSION_REQUEST_ACCESS_CODE = 100;
+
+    private Boolean checkLocation(){
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)== PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED){
+            return true;
+        }
+        return false;
+    }
+
+    private Boolean isLocationEnabled(){
+        LocationManager locationManager = (LocationManager) getSystemService(LOCATION_SERVICE);
+        if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) || locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)){
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults, int deviceId) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults, deviceId);
+        if (requestCode == PERMISSION_REQUEST_ACCESS_CODE){
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED){
+                fetchWeather();
+            }else{
+                longitude = -0.1257;
+                latitude = 51.5085;
+            }
+        }
     }
 
     private void progressing(){
@@ -76,8 +149,20 @@ public class MainActivity extends AppCompatActivity {
         mainContainer.setVisibility(View.GONE);
         error.setVisibility(View.GONE);
     }
+    private void showError(){
+        loader.setVisibility(View.GONE);
+        mainContainer.setVisibility(View.GONE);
+        error.setVisibility(View.VISIBLE);
+    }
+
+    private void loaded(){
+        loader.setVisibility(View.GONE);
+        mainContainer.setVisibility(View.VISIBLE);
+        error.setVisibility(View.GONE);
+    }
     // Fetching data from the API
     private String getData(){
+        getCurrentLocation();
         //holds the result
         String result =null;
         // HTTP connection
@@ -86,10 +171,11 @@ public class MainActivity extends AppCompatActivity {
         InputStream inputStream = null;
         try {
             // URL to fetch the data
-            URL url = new URL("https://api.openweathermap.org/data/2.5/weather?q=" + CITY + "&units=metric&appid=" + API);
+            URL url = new URL("https://api.openweathermap.org/data/2.5/weather?lat="+ latitude +"&lon=" + longitude + "&units=metric&appid=" + API);
             connection = (HttpURLConnection) url.openConnection();
             connection.setRequestMethod("GET");
             connection.connect();
+            System.out.println("Connected");
 
             //Reading the data from the stream
             inputStream = connection.getInputStream();
@@ -103,11 +189,13 @@ public class MainActivity extends AppCompatActivity {
             if (stringBuilder.length() > 0) {
                 result = stringBuilder.toString();
             }
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             e.printStackTrace();
             // Handle exceptions
             result= "Error";
-        } finally {
+        }
+        finally {
             // Close the streams and connection
             if (inputStream != null) {
                 try {
@@ -120,6 +208,7 @@ public class MainActivity extends AppCompatActivity {
                 connection.disconnect();
             }
         }
+        System.out.println(result);
         return result;
     }
     private void fetchWeather() {
@@ -131,14 +220,18 @@ public class MainActivity extends AppCompatActivity {
             final String finalResult = getData();
             handler.post(() -> {
                 if (!Objects.equals(finalResult, "Error")){
-                    loader.setVisibility(View.GONE);
                     try {
                         JSONObject jsonObject = new JSONObject(finalResult);
                         JSONObject weather = jsonObject.getJSONArray("weather").getJSONObject(0);
+                        System.out.println(1);
                         JSONObject main = jsonObject.getJSONObject("main");
+                        System.out.println(2);
                         JSONObject sys = jsonObject.getJSONObject("sys");
+                        System.out.println(3);
                         JSONObject winds = jsonObject.getJSONObject("wind");
+                        System.out.println(4);
                         long updatedAt = jsonObject.getLong("dt");
+                        System.out.println(5);
                         //Assigning values to variables
                         // Date and time
                         String updatedAtText = "Updated at: " + new java.text.SimpleDateFormat("dd/MM/yyyy hh:mm a", java.util.Locale.ENGLISH).format(new java.util.Date(updatedAt * 1000));
@@ -171,15 +264,15 @@ public class MainActivity extends AppCompatActivity {
                         pressure.setText(pressureText);
                         humidity.setText(humidityText);
                         address.setText(addressText);
-
-                        mainContainer.setVisibility(View.VISIBLE);
+                        loaded();
                     } catch (Exception e){
                         e.printStackTrace();
-                        error.setVisibility(View.VISIBLE);
+//                        showError();
+                        loaded();
+
                     }
                 } else {
-                    loader.setVisibility(View.GONE);
-                    error.setVisibility(View.VISIBLE);
+                    showError();
                 }
             });
         });
