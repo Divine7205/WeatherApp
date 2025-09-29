@@ -5,6 +5,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.View;
+import android.widget.ImageButton;
 import android.widget.ProgressBar;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
@@ -43,6 +44,7 @@ public class MainActivity extends AppCompatActivity {
     private TextView wind;
     private TextView pressure;
     private TextView humidity;
+    private ImageButton refresh;
 
     @SuppressLint("MissingInflatedId")
     @Override
@@ -63,65 +65,73 @@ public class MainActivity extends AppCompatActivity {
         wind = findViewById(R.id.wind);
         pressure = findViewById(R.id.pressure);
         humidity = findViewById(R.id.humidity);
+        refresh = findViewById(R.id.refresh);
         fetchWeather();
+        refresh.setOnClickListener(v -> fetchWeather());
 
     }
 
-    private void fetchWeather() {
-        if (loader != null){
-            loader.setVisibility(View.VISIBLE);
-            mainContainer.setVisibility(View.GONE);
-            error.setVisibility(View.GONE);
-        }
-        executorService.execute(() -> {
-            //holds the result
-            String result =null;
-            // HTTP connection
-            HttpURLConnection connection = null;
-            // TO read the data
-            InputStream inputStream = null;
-            try {
-                // URL to fetch the data
-                URL url = new URL("https://api.openweathermap.org/data/2.5/weather?q=" + CITY + "&units=metric&appid=" + API);
-                connection = (HttpURLConnection) url.openConnection();
-                connection.setRequestMethod("GET");
-                connection.connect();
+    private void progressing(){
+        loader.setVisibility(View.VISIBLE);
+        mainContainer.setVisibility(View.GONE);
+        error.setVisibility(View.GONE);
+    }
+    // Fetching data from the API
+    private String getData(){
+        //holds the result
+        String result =null;
+        // HTTP connection
+        HttpURLConnection connection = null;
+        // TO read the data
+        InputStream inputStream = null;
+        try {
+            // URL to fetch the data
+            URL url = new URL("https://api.openweathermap.org/data/2.5/weather?q=" + CITY + "&units=metric&appid=" + API);
+            connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("GET");
+            connection.connect();
 
-                //Reading the data from the stream
-                inputStream = connection.getInputStream();
-                BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(inputStream));
-                StringBuilder stringBuilder = new StringBuilder();
-                String line;
-                //Reading the data line by line
-                while ((line = bufferedReader.readLine()) != null) {
-                    stringBuilder.append(line).append("\n");
-                }
-                if (stringBuilder.length() > 0) {
-                    result = stringBuilder.toString();
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
-                // Handle exceptions
-                result= "Error fetching weather data";
-            } finally {
-                // Close the streams and connection
-                if (inputStream != null) {
-                    try {
-                        inputStream.close();
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                }
-                if (connection != null) {
-                    connection.disconnect();
+            //Reading the data from the stream
+            inputStream = connection.getInputStream();
+            BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
+            StringBuilder stringBuilder = new StringBuilder();
+            String line;
+            //Reading the data line by line
+            while ((line = reader.readLine()) != null) {
+                stringBuilder.append(line).append("\n");
+            }
+            if (stringBuilder.length() > 0) {
+                result = stringBuilder.toString();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            // Handle exceptions
+            result= "Error";
+        } finally {
+            // Close the streams and connection
+            if (inputStream != null) {
+                try {
+                    inputStream.close();
+                } catch (Exception e) {
+                    e.printStackTrace();
                 }
             }
+            if (connection != null) {
+                connection.disconnect();
+            }
+        }
+        return result;
+    }
+    private void fetchWeather() {
+        if (loader != null){
+            progressing();
+        }
+        executorService.execute(() -> {
             // Post the result to the main thread
-            final String finalResult = result;
+            final String finalResult = getData();
             handler.post(() -> {
-                if (!Objects.equals(finalResult, "Error fetching weather data")){
+                if (!Objects.equals(finalResult, "Error")){
                     loader.setVisibility(View.GONE);
-
                     try {
                         JSONObject jsonObject = new JSONObject(finalResult);
                         JSONObject weather = jsonObject.getJSONArray("weather").getJSONObject(0);

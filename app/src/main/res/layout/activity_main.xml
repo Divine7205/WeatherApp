@@ -39,6 +39,20 @@
 
         </LinearLayout>
 
+        <ImageButton
+            android:id="@+id/refresh"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:layout_alignParentTop="true"
+            android:layout_alignParentEnd="true"
+            android:layout_marginTop="10dp"
+            android:layout_marginEnd="10dp"
+            android:visibility="visible"
+            android:contentDescription="TODO"
+            android:src="@drawable/refresh"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            app:tint="@android:color/white"/>
+
         <LinearLayout
             android:id="@+id/overveiwContainer"
             android:orientation="vertical"
